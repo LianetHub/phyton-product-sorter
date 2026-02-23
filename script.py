@@ -19,6 +19,16 @@ MAPPING = {
         "Производитель", 
         "Заводская маркировка"
     ],
+    
+    "Цена": [
+        "Цена", 
+        "Розничная цена", 
+        "Цена со скидкой", 
+        "Стоимость", 
+        "Price", 
+        "РРЦ"
+    ],
+    
     "Мощность в режиме охлаждения": [
         "Холодопроизводительность (кВт)", 
         "Номинальная холодопроизводительность, кВт", 
@@ -29,21 +39,25 @@ MAPPING = {
         "Холодопроизводительность", 
         "Охлаждение (Вт)"
     ],
+    
     "Тип хладагента": [
         "Тип хладагента", 
         "Марка фреона"
     ],
+    
     "Цвет": [
         "Цвет внутреннего блока", 
         "Цвет прибора", 
         "Цвет"
     ],
+    
     "Класс энергопотребления": [
         "Класс энергопотребления", 
         "Класс энергоэффективности (охлаждение)", 
         "Класс энергоэффективности EER (охлаждение)", 
         "Класс энергетической эффективности"
     ],
+    
     "Инвертор/Тип компрессора": [
         "Инверторная технология", 
         "Тип компрессора", 
@@ -51,28 +65,33 @@ MAPPING = {
         "Инверторный компрессор", 
         "Тип управления компрессором"
     ],
+    
     "Основные режимы (режим работы)": [
         "Режим работы", 
         "Основные режимы (режим работы)", 
         "Режимы работы"
     ],
+    
     "Уровень шума": [
         "Уровень шума внутреннего блока, дБ(А)", 
         "Уровень шума внутреннего блока", 
         "Уровень звукового давления дБ(А)", 
         "Мин. уровень шума , дБ(А)"
     ],
+    
     "Максимальная длина коммуникаций": [
         "Максимальная длина трассы", 
         "Max.длина магистрали , м", 
         "Длина трассы, м", 
         "Максимальная длина труб, м"
     ],
+    
     "Модель": [
         "Название", 
         "Модель", 
         "Модель внутреннего блока"
     ],
+    
     "Изображение": [
         "Изображения", 
         "Файлы"
@@ -130,30 +149,43 @@ def process_catalog():
         return
 
     logging.info("Building unified catalog...")
-    final_df = pd.DataFrame()
-
+    temp_df = pd.DataFrame()
     current_cols = raw_df.columns.tolist()
+
+    if "Артикул" in current_cols:
+        temp_df["Артикул"] = raw_df["Артикул"]
+    else:
+        logging.error("Column 'Артикул' not found! Duplicates cannot be merged correctly.")
+        return
 
     for target, sources in MAPPING.items():
         match = next((s for s in sources if s in current_cols), None)
         if match:
-            final_df[target] = raw_df[match]
-            logging.info(f"Matched: {target} <- {match}")
+            temp_df[target] = raw_df[match]
+            logging.info(f"Mapped: {target} <- {match}")
         else:
-            final_df[target] = np.nan
-            logging.warning(f"No source for: {target}")
+            temp_df[target] = np.nan
+            logging.warning(f"Field not found: {target}")
 
     logging.info("Processing air filters...")
-    final_df["Фильтры тонкой очистки воздуха"] = raw_df.apply(extract_filters, axis=1, source_columns=current_cols)
+    temp_df["Фильтры тонкой очистки воздуха"] = raw_df.apply(extract_filters, axis=1, source_columns=current_cols)
 
-    if "Артикул" in current_cols:
-        final_df.insert(0, "Артикул", raw_df["Артикул"])
-        count_before = len(final_df)
-        final_df.drop_duplicates(subset=["Артикул"], keep='first', inplace=True)
-        logging.info(f"Duplicates removed: {count_before - len(final_df)}")
+    logging.info("Merging duplicates and filling gaps...")
+    final_df = temp_df.groupby("Артикул", as_index=False).agg(
+        lambda x: x.dropna().iloc[0] if not x.dropna().empty else np.nan
+    )
 
-    final_df.to_excel(OUTPUT_FILE, index=False)
-    logging.info(f"Success! Saved to {OUTPUT_FILE}. Total items: {len(final_df)}")
+    logging.info("Sorting by Manufacturer...")
+    if "Производитель" in final_df.columns:
+        final_df.sort_values(by="Производитель", inplace=True, na_position='last')
+
+    try:
+        final_df.to_excel(OUTPUT_FILE, index=False)
+        logging.info(f"Success! Saved to {OUTPUT_FILE} | Total unique items: {len(final_df)}")
+    except PermissionError:
+        logging.error(f"Could not save! Close '{OUTPUT_FILE}' and try again.")
+    except Exception as e:
+        logging.error(f"Error during save: {e}")
 
 if __name__ == "__main__":
     process_catalog()

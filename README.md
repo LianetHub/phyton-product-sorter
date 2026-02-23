@@ -12,7 +12,7 @@
 1. **Клонируйте репозиторий:**
 
     ```bash
-    git clone [https://github.com/LianetHub/phyton-product-sorter](https://github.com/LianetHub/phyton-product-sorter)
+    git clone https://github.com/LianetHub/phyton-product-sorter
     cd phyton-product-sorter
     ```
 
@@ -30,7 +30,7 @@
     python script.py
     ```
 
-## 📂 Структура проекта
+## Структура проекта
 
 ```text
 phyton-product-sorter/

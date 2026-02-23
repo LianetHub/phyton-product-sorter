@@ -41,45 +41,27 @@ Markdown
     ```bash
     git clone <url_вашего_репозитория>
     cd <название_папки>
-
     ```
 
 2. Установите необходимые зависимости:
 
-Bash
-pip install pandas openpyxl
+    ```bash
+    pip install pandas openpyxl
+    ```
 
-Bash
-pip install pandas openpyxl
-Использование
+## Использование
+
 Поместите исходные файлы .xlsx в папку data/.
 
 Запустите скрипт:
 
-Bash
-python script.py
-Результат будет сохранен в файл merged_catalog.xlsx.
-
-Структура проекта
-script.py — основной файл скрипта.
-
-data/ — папка для входящих файлов (создается автоматически, если её нет).
-
-merged_catalog.xlsx — итоговый отчет.
-
-Использование
-Поместите исходные файлы .xlsx в папку data/.
-
-Запустите скрипт:
-
-Bash
-python script.py
+    ```bash
+    python script.py
+    ```
 
 Результат будет сохранен в файл merged_catalog.xlsx.
 
 Структура проекта
 script.py — основной файл скрипта.
-
-data/ — папка для входящих файлов (создается автоматически, если её нет).
-
+data/ — папка для входящих файлов
 merged_catalog.xlsx — итоговый отчет.

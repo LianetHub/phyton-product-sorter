@@ -1,20 +1,19 @@
 import pandas as pd
 import glob
 import numpy as np
+import logging
+import os
 
-folder_path = "data/"
-output_file = "merged_catalog.xlsx"
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
 
-files = glob.glob(folder_path + "*.xlsx")
-dfs = []
+DATA_FOLDER = "data/"
+OUTPUT_FILE = "merged_catalog.xlsx"
 
-for file in files:
-    df = pd.read_excel(file)
-    dfs.append(df)
-
-merged_df = pd.concat(dfs, axis=0, ignore_index=True)
-
-column_mapping = {
+MAPPING = {
     "Производитель": [
         "Бренд", 
         "Производитель", 
@@ -22,17 +21,13 @@ column_mapping = {
     ],
     "Мощность в режиме охлаждения": [
         "Холодопроизводительность (кВт)", 
-        "Номинальная холодопроизводительность, кВт",
-        "Номинальная холодопроизводительность",
-        "Охлаждение (кВт)",
-        "Произв. холод, кВт",
-        "Производительность холод , кВт",
-        "Холодопроизводительность (Выс./Ср./Низк.), кВт",
-        "Охлаждение максимум (Вт)",
-        "Охлаждение (Вт)",
-        "Холодопроизводительность",
-        "Холодопроизводительность (kBTU)",
-        "Мощность кондиционера , тыс.BTU"
+        "Номинальная холодопроизводительность, кВт", 
+        "Номинальная холодопроизводительность", 
+        "Охлаждение (кВт)", 
+        "Произв. холод, кВт", 
+        "Производительность холод , кВт", 
+        "Холодопроизводительность", 
+        "Охлаждение (Вт)"
     ],
     "Тип хладагента": [
         "Тип хладагента", 
@@ -41,53 +36,37 @@ column_mapping = {
     "Цвет": [
         "Цвет внутреннего блока", 
         "Цвет прибора", 
-        "Цвет", 
-        "Цвет наружного блока"
+        "Цвет"
     ],
     "Класс энергопотребления": [
         "Класс энергопотребления", 
-        "Класс энергоэффективности (охлаждение)",
-        "Класс энергоэффективности EER (охлаждение)",
-        "Класс сезонной энергетической эффективности",
+        "Класс энергоэффективности (охлаждение)", 
+        "Класс энергоэффективности EER (охлаждение)", 
         "Класс энергетической эффективности"
     ],
     "Инвертор/Тип компрессора": [
         "Инверторная технология", 
         "Тип компрессора", 
         "Инвертор", 
-        "Инверторный компрессор",
+        "Инверторный компрессор", 
         "Тип управления компрессором"
     ],
     "Основные режимы (режим работы)": [
         "Режим работы", 
-        "Основные режимы (режим работы)",
-        "Режимы работы",
-        "Дополнительные режимы"
+        "Основные режимы (режим работы)", 
+        "Режимы работы"
     ],
     "Уровень шума": [
-        "Уровень шума внутреннего блока, дБ(А)",
-        "Уровень шума внутреннего блока",
-        "Уровень звукового давления дБ(А)",
-        "Уровень шума дБ(А)",
-        "Уровень звукового давления (Выс/Ср/Низ/Сверх) дБ(А)",
-        "Уровень шума (Низк./Ср./Выс. скорость), дБ(А)",
-        "Уровень шума, дБ(A)",
-        "Мин. уровень шума , дБ(А)",
-        "Минимальный уровень шума внутреннего блока",
-        "Уровень звуковой мощности дБ(А)"
+        "Уровень шума внутреннего блока, дБ(А)", 
+        "Уровень шума внутреннего блока", 
+        "Уровень звукового давления дБ(А)", 
+        "Мин. уровень шума , дБ(А)"
     ],
     "Максимальная длина коммуникаций": [
-        "Максимальная длина трассы",
-        "Max.длина магистрали , м",
-        "Длина трассы, м",
-        "Максимальная длина труб, м",
-        "Максимальная суммарная длина трассы",
-        "Максимальная длина трубопровода (Эквивалентная/Действительная) (м)",
-        "Макс. длина трубопроводов без дополнительной заправки (м)",
-        "Максимальная длина трубы между наружным и внутренним блоками (м)",
-        "Максимальная суммарная длина трубопровода (м)",
-        "Длина трассы до 1-го блока , м",
-        "Длина трассы до 1-го блока, м"
+        "Максимальная длина трассы", 
+        "Max.длина магистрали , м", 
+        "Длина трассы, м", 
+        "Максимальная длина труб, м"
     ],
     "Модель": [
         "Название", 
@@ -100,64 +79,81 @@ column_mapping = {
     ]
 }
 
-final_data = pd.DataFrame()
-
-for target_col, source_cols in column_mapping.items():
-    found_col = None
-    for col in source_cols:
-        if col in merged_df.columns:
-            found_col = col
-            break
-    
-    if found_col:
-        final_data[target_col] = merged_df[found_col]
-    else:
-        final_data[target_col] = np.nan
-
-filter_keywords = [
-    "Дополнительные фильтры тонкой очистки в комплекте",
-    "Фильтра",
-    "Воздушный фильтр",
-    "Тип фильтра и класс очистки"
+FILTER_KEYS = [
+    "Дополнительные фильтры тонкой очистки в комплекте", 
+    "Фильтра", 
+    "Воздушный фильтр"
 ]
 
-filter_boolean_cols = [col for col in merged_df.columns if "фильтр тонкой очистки" in col.lower() and col not in filter_keywords]
+YES_VALUES = {'да', '+', 'yes', 'true', '1', 'есть'}
 
-def get_filters(row):
-    found_filters = []
+def load_data(folder):
+    files = glob.glob(os.path.join(folder, "*.xlsx"))
+    if not files:
+        logging.error(f"Excel files not found in: {folder}")
+        return None
     
-    for kw in filter_keywords:
-        if kw in merged_df.columns and pd.notna(row[kw]) and str(row[kw]).strip() != "":
-            found_filters.append(str(row[kw]))
+    logging.info(f"Files found: {len(files)}")
+    dataframes = []
+    
+    for file in files:
+        try:
+            df = pd.read_excel(file)
+            df.columns = df.columns.astype(str).str.strip()
+            logging.info(f"Loaded: {file} ({len(df)} rows)")
+            dataframes.append(df)
+        except Exception as e:
+            logging.error(f"Error loading {file}: {e}")
             
-    for b_col in filter_boolean_cols:
-        val = str(row[b_col]).strip().lower()
-        if val in ['да', '+', 'yes', 'true', '1', 'есть']:
-            clean_name = b_col.replace("Дополнительный фильтр тонкой очистки ", "")
-            found_filters.append(clean_name)
+    return pd.concat(dataframes, axis=0, ignore_index=True) if dataframes else None
+
+def extract_filters(row, source_columns):
+    active_filters = []
+    
+    for key in FILTER_KEYS:
+        if key in row.index and pd.notna(row[key]) and str(row[key]).strip():
+            active_filters.append(str(row[key]))
             
-    if found_filters:
-        return ", ".join(found_filters)
-    return np.nan
+    boolean_cols = [c for c in source_columns if "фильтр тонкой очистки" in c.lower() and c not in FILTER_KEYS]
+    
+    for col in boolean_cols:
+        val = str(row[col]).strip().lower()
+        if val in YES_VALUES:
+            name = col.replace("Дополнительный фильтр тонкой очистки ", "")
+            active_filters.append(name)
+            
+    return ", ".join(active_filters) if active_filters else np.nan
 
-final_data["Фильтры тонкой очистки воздуха"] = merged_df.apply(get_filters, axis=1)
+def process_catalog():
+    raw_df = load_data(DATA_FOLDER)
+    if raw_df is None:
+        return
 
-if "Артикул" in merged_df.columns:
-    final_data.insert(0, "Артикул", merged_df["Артикул"])
-    final_data = final_data.drop_duplicates(subset=["Артикул"], keep='first')
-else:
-    final_data = final_data.drop_duplicates(keep='first')
+    logging.info("Building unified catalog...")
+    final_df = pd.DataFrame()
 
-target_order = [
-    "Производитель", "Мощность в режиме охлаждения", "Тип хладагента", "Цвет",
-    "Класс энергопотребления", "Инвертор/Тип компрессора", "Фильтры тонкой очистки воздуха",
-    "Основные режимы (режим работы)", "Уровень шума", "Максимальная длина коммуникаций",
-    "Модель", "Изображение"
-]
+    current_cols = raw_df.columns.tolist()
 
-if "Артикул" in final_data.columns:
-    target_order.insert(0, "Артикул")
+    for target, sources in MAPPING.items():
+        match = next((s for s in sources if s in current_cols), None)
+        if match:
+            final_df[target] = raw_df[match]
+            logging.info(f"Matched: {target} <- {match}")
+        else:
+            final_df[target] = np.nan
+            logging.warning(f"No source for: {target}")
 
-final_data = final_data.reindex(columns=target_order)
+    logging.info("Processing air filters...")
+    final_df["Фильтры тонкой очистки воздуха"] = raw_df.apply(extract_filters, axis=1, source_columns=current_cols)
 
-final_data.to_excel(output_file, index=False)
+    if "Артикул" in current_cols:
+        final_df.insert(0, "Артикул", raw_df["Артикул"])
+        count_before = len(final_df)
+        final_df.drop_duplicates(subset=["Артикул"], keep='first', inplace=True)
+        logging.info(f"Duplicates removed: {count_before - len(final_df)}")
+
+    final_df.to_excel(OUTPUT_FILE, index=False)
+    logging.info(f"Success! Saved to {OUTPUT_FILE}. Total items: {len(final_df)}")
+
+if __name__ == "__main__":
+    process_catalog()
